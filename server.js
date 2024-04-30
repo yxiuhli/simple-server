@@ -9,8 +9,8 @@ app.use(cors())
 const db = mongoose.connect('mongodb+srv://testUser:1234@cluster0.eugrwrv.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0');
 
 const userSchema = new mongoose.Schema({ username: String, email: String, password: String });
-const patientSchema = new mongoose.Schema({ name: String, phone: String, address: String, dob: Date, gender: String });
-const staffSchema = new mongoose.Schema({ name: String, dob: Date, gender: String, startedWork: Date, job: String });
+const patientSchema = new mongoose.Schema({ name: String, phone: String, address: String, dob: String, gender: String });
+const staffSchema = new mongoose.Schema({ name: String, dob: String, gender: String, startedWork: String, job: String });
 const doctorSchema = new mongoose.Schema({ degree: String, staffId: String });
 
 const User = mongoose.model('User', userSchema);
@@ -61,6 +61,46 @@ app.get('/doctors', async (req, res) => {
     console.log(doctors)
     return res.json(doctors)
 })
+
+app.get('/doctors/:id', async (req, res) => {
+    const doctorStaff = await Staff.findOne({_id: req.params.id, job: "doctor"});
+    if (!doctorStaff) {
+        return res.status(404).json({message: "Doctor not found"});
+    }
+    const doctorInfo = await Doctor.findOne({staffId: doctorStaff._id});
+    const degree = doctorInfo.degree;
+    const doctor = { ...doctorStaff._doc, degree};
+    console.log(doctor);
+    return res.json(doctor);
+});
+
+app.delete('/doctors/:id', async (req, res) => {
+    console.log("deleting")
+    const doctorStaff = await Staff.findOneAndDelete({_id: req.params.id})
+    if (!doctorStaff) {
+        return res.status(404).json({message: "Doctor not found"});
+    }
+    return res.json(doctorStaff);
+});
+app.post('/doctors/add', async (req, res) => {
+    console.log("adding")
+    const {name, dob, gender, start, degree} = req.body
+    const doctor = {name, dob, gender, startedWork: start, job: "doctor"}
+    const staff = await Staff.create(doctor)
+    const doctorDegree = {degree, staffId: staff._id}
+    const newDoc = await Doctor.create(doctorDegree)
+    return res.json(newDoc);
+});
+app.post('/doctors/update/:id', async (req, res) => {
+    console.log("updating")
+    const {name, dob, gender, start, degree} = req.body
+    const doctor = {name, dob, gender, startedWork: start}
+    const staff = await Staff.updateOne({_id: req.params.id}, doctor, {})
+    
+    const updatedDoc = await Doctor.updateOne({staffId: staff._id}, {degree}, {})
+    return res.json(updatedDoc);
+});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`)
